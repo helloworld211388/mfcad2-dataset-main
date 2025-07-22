@@ -1,0 +1,12 @@
+name: mfcadpp
+channels:
+        - conda-forge
+        - defaults
+dependencies:
+        - python=3.9
+        - numpy
+        - numba
+        - h5py
+        - pythonocc-core=7.5.1
+        - occt=7.5.1
+        - pip
