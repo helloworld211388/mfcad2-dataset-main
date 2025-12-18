@@ -8,6 +8,7 @@ To change the parameters of each machining feature, please see parameters.py
 from multiprocessing import Pool
 from itertools import combinations_with_replacement
 import Utils.shape as shape
+import Utils.parameters as param
 import random
 import os
 import pickle
@@ -75,16 +76,16 @@ def generate_shape(shape_dir, combination, count):
 if __name__ == '__main__':
     # Parameters to be set before use
     shape_dir = 'data'
-    num_features = 24
-    combo_range = [3, 10]
-    num_samples = 10
+    num_features = len(param.feat_names) - 1#所有可用特征的数量
+    combo_range = [3, 10]#特征组合包含的特征数的范围
+    num_samples = 10#生成的样本数量
 
     if not os.path.exists(shape_dir):
         os.mkdir(shape_dir)
 
     combos = []
     for num_combo in range(combo_range[0], combo_range[1]):
-        combos += list(combinations_with_replacement(range(num_features), num_combo))
+        combos += list(combinations_with_replacement(range(24,26), num_combo))#生成所有可能的特征组合 长度为num_combo，每个位置的特征从0到num_features-1中选择，可以重复选择,我目前只生成最后两类特征
 
     random.shuffle(combos)
     test_combos = combos[:num_samples]

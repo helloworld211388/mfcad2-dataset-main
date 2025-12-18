@@ -1,0 +1,6 @@
+/data
+/Features/__pycache__
+.idea/
+OCCUtils/__pycache__
+Utils/__pycache__
+__pycache__

@@ -1,0 +1,4 @@
+1.用于mfcad数据生成，但是代码还没有跑通
+2.想增加沉头孔 和凸台，观点来自https://gemini.google.com/u/2/app/0e9523f5a0acc3cb
+3.想实验的话，先改成只生成两类https://gemini.google.com/u/2/app/0e9523f5a0acc3cb
+4.增加了加强筋和埋头孔

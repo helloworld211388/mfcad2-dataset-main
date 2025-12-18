@@ -49,7 +49,11 @@ feat_names = ['chamfer', #0
               'circular_blind_step', #21
               'rectangular_blind_step', #22
               'round', #23
-              'stock'] #24
+              'counterbore', #24
+              'boss', #25
+              'countersunk_hole', #26
+              'rib', #27
+              'stock'] #28
 
 feat_names_planar = ['rectangular_through_slot', #0
              'triangular_through_slot', #1
