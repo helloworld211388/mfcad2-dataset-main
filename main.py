@@ -8,6 +8,7 @@ To change the parameters of each machining feature, please see parameters.py
 from multiprocessing import Pool
 from itertools import combinations_with_replacement
 import Utils.shape as shape
+import Utils.parameters as param
 import random
 import os
 import pickle
@@ -75,7 +76,7 @@ def generate_shape(shape_dir, combination, count):
 if __name__ == '__main__':
     # Parameters to be set before use
     shape_dir = 'data'
-    num_features = 24
+    num_features = len(param.feat_names) - 1
     combo_range = [3, 10]
     num_samples = 10
 
