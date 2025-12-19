@@ -659,32 +659,6 @@ class MachiningFeature:
 
         return shape, new_labels
 
-
-class AdditiveFeature(MachiningFeature):
-    def _get_depth(self, bound, triangles):
-        max_dim = max(param.stock_dim_x, param.stock_dim_y, param.stock_dim_z)
-        if max_dim is None:
-            return self.min_len
-
-        max_height = max_dim / 4.0
-        if max_height <= self.min_len:
-            return self.min_len
-
-        return random.uniform(self.min_len, max_height)
-
-    def _apply_feature(self, old_shape, old_labels, feat_type, feat_face, depth_dir):
-        feature_maker = BRepFeat_MakePrism()
-        feature_maker.Init(old_shape, feat_face, TopoDS_Face(), occ_utils.as_occ(-depth_dir, gp_Dir), True, False)
-        feature_maker.Build()
-
-        feature_maker.Perform(np.linalg.norm(depth_dir))
-        shape = feature_maker.Shape()
-
-        fmap = shape_factory.map_face_before_and_after_feat(old_shape, feature_maker)
-        new_labels = shape_factory.map_from_shape_and_name(fmap, old_labels, shape, self.feat_names.index(feat_type))
-
-        return shape, new_labels
-
     def add_feature(self, bounds, find_bounds=True):
         """Adds machining feature to current shape.
 
@@ -803,3 +777,28 @@ def edge_dihedral(edge, faces):
         s = np.sign(r)
 
     return s
+
+class AdditiveFeature(MachiningFeature):
+    def _get_depth(self, bound, triangles):
+        max_dim = max(param.stock_dim_x, param.stock_dim_y, param.stock_dim_z)
+        if max_dim is None:
+            return self.min_len
+
+        max_height = max_dim / 4.0
+        if max_height <= self.min_len:
+            return self.min_len
+
+        return random.uniform(self.min_len, max_height)
+
+    def _apply_feature(self, old_shape, old_labels, feat_type, feat_face, depth_dir):
+        feature_maker = BRepFeat_MakePrism()
+        feature_maker.Init(old_shape, feat_face, TopoDS_Face(), occ_utils.as_occ(-depth_dir, gp_Dir), True, False)
+        feature_maker.Build()
+
+        feature_maker.Perform(np.linalg.norm(depth_dir))
+        shape = feature_maker.Shape()
+
+        fmap = shape_factory.map_face_before_and_after_feat(old_shape, feature_maker)
+        new_labels = shape_factory.map_from_shape_and_name(fmap, old_labels, shape, self.feat_names.index(feat_type))
+
+        return shape, new_labels

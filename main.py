@@ -77,19 +77,29 @@ if __name__ == '__main__':
     # Parameters to be set before use
     shape_dir = 'data'
     num_features = len(param.feat_names) - 1#所有可用特征的数量
-    combo_range = [3, 10]#特征组合包含的特征数的范围
+    combo_range = [3, 4]#特征组合包含的特征数的范围
     num_samples = 10#生成的样本数量
 
     if not os.path.exists(shape_dir):
         os.mkdir(shape_dir)
 
-    combos = []
-    for num_combo in range(combo_range[0], combo_range[1]):
-        combos += list(combinations_with_replacement(range(24,26), num_combo))#生成所有可能的特征组合 长度为num_combo，每个位置的特征从0到num_features-1中选择，可以重复选择,我目前只生成最后两类特征
+    # combos = []
+    # for num_combo in range(combo_range[0], combo_range[1]):
+    #     combos += list(combinations_with_replacement(range(26,28), num_combo))#生成所有可能的特征组合 长度为num_combo，每个位置的特征从0到num_features-1中选择，可以重复选择,我目前只生成最后两类特征
+    #
+    # random.shuffle(combos)
+    # test_combos = combos[:num_samples]
+    #
+    # for count, combo in enumerate(test_combos):
+    #     print(f"{count}: {combo}")
+    #     generate_shape(shape_dir, combo, count)
 
-    random.shuffle(combos)
-    test_combos = combos[:num_samples]
 
-    for count, combo in enumerate(test_combos):
-        print(f"{count}: {combo}")
-        generate_shape(shape_dir, combo, count)
+    #每个特征单独生成一个样本，并且名字就是特征的名字
+    
+    unique_combos=[];
+    for i in  range(0,num_features):#0-27为基本的特征 左闭右开，所以这里得到了0-27
+        unique_combos.append([i]);
+
+    for i in range(0,num_features):
+        generate_shape(shape_dir, unique_combos[i], param.feat_names[i]);
