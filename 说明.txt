@@ -1,4 +1,3 @@
-1.用于mfcad数据生成，但是代码还没有跑通
-2.想增加沉头孔 和凸台，观点来自https://gemini.google.com/u/2/app/0e9523f5a0acc3cb
-3.想实验的话，先改成只生成两类https://gemini.google.com/u/2/app/0e9523f5a0acc3cb
-4.增加了加强筋和埋头孔
+1.增加变半径圆角，https://jingyan.baidu.com/article/9faa72314b54ff063c28cb99.html
+2.螺纹孔https://www.rapiddirect.com/zh-CN/blog/threaded-holes/ 螺纹都使用了矩形牙型https://baike.baidu.com/item/%E8%9E%BA%E7%BA%B9/2947720#:~:text=%E8%9E%BA%E7%BA%B9%E6%8C%87%E7%9A%84%E6%98%AF%E5%9C%A8,%E5%8F%8A%E5%85%B6%E4%BB%96%E7%89%B9%E6%AE%8A%E5%BD%A2%E7%8A%B6%E8%9E%BA%E7%BA%B9%E3%80%82
+3.螺柱https://zh.wikipedia.org/zh-cn/%E8%9E%BA%E6%A0%93

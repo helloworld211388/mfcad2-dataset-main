@@ -20,6 +20,16 @@ inner_bounds_clearance = 2
 round_radius_min = 0.1
 round_radius_max = 5.0
 
+# Variable Round Parameters
+variable_round_radius_min = 0.1
+variable_round_radius_max = 5.0
+
+# Thread / Stud Parameters
+thread_profile_scale_min = 0.5  # ratio applied to available half-width/height
+thread_profile_scale_max = 0.9
+stud_height_scale_min = 0.5     # ratio of available height for stud extrusion
+stud_height_scale_max = 1.0
+
 # Chamfer Parameters
 chamfer_depth_min = 0.1 # 1
 chamfer_depth_max = 4.0 #4
@@ -53,7 +63,10 @@ feat_names = ['chamfer', #0
               'boss', #25
               'countersunk_hole', #26
               'rib', #27
-              'stock'] #28
+              'variable_round', #28
+              'stud', #29
+              'threaded_hole', #30
+              'stock'] #31
 
 feat_names_planar = ['rectangular_through_slot', #0
              'triangular_through_slot', #1

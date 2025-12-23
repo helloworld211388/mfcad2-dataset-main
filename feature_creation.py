@@ -38,6 +38,9 @@ from Features.counterbore import Counterbore
 from Features.boss import Boss
 from Features.countersunk_hole import CountersunkHole
 from Features.rib import Rib
+from Features.variable_round import VariableRound
+from Features.stud import Stud
+from Features.threaded_hole import ThreadedHole
 
 feat_names = ['chamfer', 'through_hole', 'triangular_passage', 'rectangular_passage', '6sides_passage',
               'triangular_through_slot', 'rectangular_through_slot', 'circular_through_slot',
@@ -45,7 +48,8 @@ feat_names = ['chamfer', 'through_hole', 'triangular_passage', 'rectangular_pass
               'triangular_pocket', 'rectangular_pocket', '6sides_pocket', 'circular_end_pocket',
               'rectangular_blind_slot', 'v_circular_end_blind_slot', 'h_circular_end_blind_slot',
               'triangular_blind_step', 'circular_blind_step', 'rectangular_blind_step', 'round',
-              'counterbore', 'boss', 'countersunk_hole', 'rib', 'stock']
+              'counterbore', 'boss', 'countersunk_hole', 'rib', 'variable_round', 'stud',
+              'threaded_hole', 'stock']
 
 feat_classes = {"chamfer": Chamfer, "through_hole": ThroughHole, "triangular_passage": TriangularPassage,
                 "rectangular_passage": RectangularPassage, "6sides_passage": SixSidesPassage,
@@ -58,11 +62,12 @@ feat_classes = {"chamfer": Chamfer, "through_hole": ThroughHole, "triangular_pas
                 "h_circular_end_blind_slot": HCircularEndBlindSlot, "triangular_blind_step": TriangularBlindStep,
                 "circular_blind_step": CircularBlindStep, "rectangular_blind_step": RectangularBlindStep,
                 "round": Round, "counterbore": Counterbore, "boss": Boss,
-                "countersunk_hole": CountersunkHole, "rib": Rib}
+                "countersunk_hole": CountersunkHole, "rib": Rib,
+                "variable_round": VariableRound, "stud": Stud, "threaded_hole": ThreadedHole}
 
 through_blind_features = ["triangular_passage", "rectangular_passage", "6sides_passage", "triangular_pocket",
                           "rectangular_pocket", "6sides_pocket", "through_hole", "blind_hole", "circular_end_pocket",
-                          "Oring", "counterbore", "countersunk_hole"]
+                          "Oring", "counterbore", "countersunk_hole", "threaded_hole"]
 
 
 def triangulate_shape(shape):
@@ -88,7 +93,8 @@ def rearrange_combo(combination):
     o_ring_feats = []
 
     for cnt, val in enumerate(combination):
-        if val == param.feat_names.index("chamfer") or val == param.feat_names.index("round"):
+        if val == param.feat_names.index("chamfer") or val == param.feat_names.index("round") \
+                or val == param.feat_names.index("variable_round"):
             transition_feats.append(val)
         elif val == param.feat_names.index("rectangular_through_step") \
                 or val == param.feat_names.index("2sides_through_step") \
@@ -181,7 +187,7 @@ def shape_from_directive(combo):
 
         for fid in combo:
             feat_name = param.feat_names[fid]
-            if feat_name == "chamfer":
+            if fid == param.feat_names.index("chamfer"):
                 edges = occ_utils.list_edge(shape)
                 new_feat = feat_classes[feat_name](shape, label_map, param.min_len,
                                                    param.clearance, param.feat_names, edges)
@@ -190,7 +196,7 @@ def shape_from_directive(combo):
                 if len(edges) == 0:
                     break
 
-            elif feat_name == "round":
+            elif fid == param.feat_names.index("round") or fid == param.feat_names.index("variable_round"):
                 if find_edges:
                     edges = occ_utils.list_edge(shape)
                     find_edges = False
