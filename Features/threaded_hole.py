@@ -4,15 +4,22 @@ import numpy as np
 
 from OCC.Core.BRepFeat import BRepFeat_MakePrism
 from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire, BRepBuilderAPI_MakeFace
-from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
+from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakePrism
 from OCC.Core.TopoDS import TopoDS_Face
-from OCC.Core.gp import gp_Circ, gp_Ax2, gp_Pnt, gp_Dir, gp_Vec
+from OCC.Core.gp import gp_Circ, gp_Ax2, gp_Pnt, gp_Dir, gp_Vec, gp_Dir2d
+from OCC.Core.Geom import Geom_CylindricalSurface
+from OCC.Core.Geom2d import Geom2d_Line, Geom2d_TrimmedCurve, Geom2d_Ellipse
+from OCC.Core.GCE2d import GCE2d_MakeSegment
+from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_MakePipe, BRepOffsetAPI_MakePipeShell, BRepOffsetAPI_ThruSections
+from OCC.Core.gp import gp_Ax3, gp_Pnt2d, gp_Pln, gp_Ax2d
+from OCC.Core.BRepLib import breplib_BuildCurves3d
 
 import Utils.occ_utils as occ_utils
 import Utils.parameters as param
 import Utils.shape_factory as shape_factory
 from Features.machining_features import MachiningFeature
+from Utils.thread_utils import create_thread_solid
 
 
 class ThreadedHole(MachiningFeature):
@@ -99,19 +106,17 @@ class ThreadedHole(MachiningFeature):
         if depth <= 0 or self.thread_axis is None or self.r_major is None or self.r_minor is None:
             return shape, base_labels
 
-        n_seg = max(1, int(depth / self.min_len))
-        pitch = depth / n_seg
-        dir_vec = gp_Vec(self.thread_axis.Direction().XYZ())
-        base_loc = gp_Pnt(self.thread_axis.Location().XYZ())
+        try:
+            # New logic
+            thread_solid = create_thread_solid(self.thread_axis, self.r_minor, depth)
 
-        threaded_shape = shape
-        for k in range(n_seg):
-            loc = gp_Pnt(base_loc.X(), base_loc.Y(), base_loc.Z())
-            loc.Translate(dir_vec * (k * pitch))
-            axis = gp_Ax2(loc, self.thread_axis.Direction())
-            radius = self.r_major if k % 2 == 0 else self.r_minor
-            cyl = BRepPrimAPI_MakeCylinder(axis, radius, pitch).Shape()
-            threaded_shape = BRepAlgoAPI_Cut(threaded_shape, cyl).Shape()
+            if thread_solid.IsNull():
+                print("Error: thread_solid is Null")
+                return shape, base_labels
 
-        new_labels = self._merge_label_map(base_labels, shape, threaded_shape, self.feat_names.index(self.feat_type))
-        return threaded_shape, new_labels
+            threaded_shape = BRepAlgoAPI_Cut(shape, thread_solid).Shape()
+            new_labels = self._merge_label_map(base_labels, shape, threaded_shape, self.feat_names.index(self.feat_type))
+            return threaded_shape, new_labels
+        except Exception as e:
+            print(f"Thread generation failed: {e}")
+            return shape, base_labels

@@ -10,7 +10,7 @@ import OCCUtils.edge
 
 
 def _edge_radius_range(edge_length):
-    max_radius = edge_length / 5.0
+    max_radius = edge_length / 10.0
     if max_radius > param.variable_round_radius_max:
         max_radius = param.variable_round_radius_max
     return param.variable_round_radius_min, max_radius
@@ -26,7 +26,6 @@ class VariableRound(MachiningFeature):
         self.edges = edges
 
     def add_feature(self):
-        fillet_maker = BRepFilletAPI_MakeFillet(self.shape)
         usable_edges = []
 
         for edge in self.edges:
@@ -35,6 +34,10 @@ class VariableRound(MachiningFeature):
                 usable_edges.append(edge)
 
         self.edges = usable_edges
+
+        # Create fillet maker on current shape
+        fillet_maker = BRepFilletAPI_MakeFillet(self.shape)
+        shape = self.shape
 
         while len(self.edges) > 0:
             edge = random.choice(self.edges)
@@ -50,8 +53,12 @@ class VariableRound(MachiningFeature):
                 r2 = min(rmax, r1 + rmin)
 
             try:
-                fillet_maker.Add(edge)
-                fillet_maker.SetRadius(r1, r2, edge)
+                fillet_maker.Add(r1, r2, edge)
+                fillet_maker.Build()
+                if not fillet_maker.IsDone():
+                    self.edges.remove(edge)
+                    continue
+
                 shape = fillet_maker.Shape()
                 self.edges.remove(edge)
                 break

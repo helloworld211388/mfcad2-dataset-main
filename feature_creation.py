@@ -126,7 +126,9 @@ def rearrange_combo(combination):
                 or val == param.feat_names.index("counterbore") \
                 or val == param.feat_names.index("boss") \
                 or val == param.feat_names.index("countersunk_hole") \
-                or val == param.feat_names.index("rib"):
+                or val == param.feat_names.index("rib") \
+                or val == param.feat_names.index("stud") \
+                or val == param.feat_names.index("threaded_hole"):
             blind_feats.append(val)
 
         elif val == param.feat_names.index("Oring"):

@@ -29,7 +29,6 @@ class Round(MachiningFeature):
         self.edges = edges
 
     def add_feature(self):
-        fillet_maker = BRepFilletAPI_MakeFillet(self.shape)
         new_edges = []
 
         for edge in self.edges:
@@ -38,6 +37,10 @@ class Round(MachiningFeature):
                 new_edges.append(edge)
 
         self.edges = new_edges
+
+        # Create fillet maker on current shape
+        fillet_maker = BRepFilletAPI_MakeFillet(self.shape)
+        shape = self.shape
 
         while len(self.edges) > 0:
             edge = random.choice(self.edges)
@@ -51,11 +54,16 @@ class Round(MachiningFeature):
 
             try:
                 fillet_maker.Add(radius, edge)
+                fillet_maker.Build()
+                if not fillet_maker.IsDone():
+                    self.edges.remove(edge)
+                    continue
+
                 shape = fillet_maker.Shape()
                 self.edges.remove(edge)
                 break
 
-            except:
+            except Exception:
                 self.edges.remove(edge)
                 continue
 
@@ -66,5 +74,5 @@ class Round(MachiningFeature):
 
             return shape, label_map, self.edges
 
-        except:
+        except Exception:
             return self.shape, self.label_map, self.edges

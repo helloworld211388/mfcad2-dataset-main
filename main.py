@@ -98,8 +98,8 @@ if __name__ == '__main__':
     #每个特征单独生成一个样本，并且名字就是特征的名字
 
     unique_combos=[];
-    for i in  range(0,num_features):#0-27为基本的特征 左闭右开，所以这里得到了0-27
+    for i in  range(num_features-2,num_features):#取最后两个特征
         unique_combos.append([i]);
 
-    for i in range(0,num_features):
-        generate_shape(shape_dir, unique_combos[i], param.feat_names[i]);
+    for i in range(0,2):
+        generate_shape(shape_dir, unique_combos[i], param.feat_names[unique_combos[i][0]]);

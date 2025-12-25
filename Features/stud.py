@@ -3,15 +3,22 @@ import math
 import numpy as np
 
 from OCC.Core.BRepFeat import BRepFeat_MakePrism
-from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire, BRepBuilderAPI_MakeFace
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder
-from OCC.Core.gp import gp_Circ, gp_Ax2, gp_Pnt, gp_Dir, gp_Vec
+from OCC.Core.TopoDS import TopoDS_Face
+from OCC.Core.gp import gp_Circ, gp_Ax2, gp_Pnt, gp_Dir, gp_Vec, gp_Dir2d, gp_Pnt2d, gp_Ax2d, gp_Ax3
+from OCC.Core.Geom import Geom_CylindricalSurface
+from OCC.Core.Geom2d import Geom2d_Line, Geom2d_TrimmedCurve
+from OCC.Core.GCE2d import GCE2d_MakeSegment
+from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_ThruSections
+from OCC.Core.BRepLib import breplib_BuildCurves3d
 
 import Utils.occ_utils as occ_utils
 import Utils.parameters as param
 import Utils.shape_factory as shape_factory
 from Features.machining_features import AdditiveFeature
+from Utils.thread_utils import create_thread_solid
 
 
 class Stud(AdditiveFeature):
@@ -84,7 +91,7 @@ class Stud(AdditiveFeature):
 
     def _apply_feature(self, old_shape, old_labels, feat_type, feat_face, depth_dir):
         feature_maker = BRepFeat_MakePrism()
-        feature_maker.Init(old_shape, feat_face, None, occ_utils.as_occ(-depth_dir, gp_Dir), True, False)
+        feature_maker.Init(old_shape, feat_face, TopoDS_Face(), occ_utils.as_occ(-depth_dir, gp_Dir), True, False)
         feature_maker.Build()
 
         depth = np.linalg.norm(depth_dir)
@@ -97,19 +104,75 @@ class Stud(AdditiveFeature):
         if depth <= 0 or self.thread_axis is None or self.r_major is None or self.r_groove is None:
             return shape, base_labels
 
-        n_seg = max(1, int(depth / self.min_len))
-        pitch = depth / n_seg
-        dir_vec = gp_Vec(self.thread_axis.Direction().XYZ())
-        base_loc = gp_Pnt(self.thread_axis.Location().XYZ())
+        try:
+            base_radius = self.r_major
+            if base_radius <= 0:
+                return shape, base_labels
 
-        threaded_shape = shape
-        for k in range(n_seg):
-            if k % 2 == 0:
-                loc = gp_Pnt(base_loc.X(), base_loc.Y(), base_loc.Z())
-                loc.Translate(dir_vec * (k * pitch))
-                axis = gp_Ax2(loc, self.thread_axis.Direction())
-                groove = BRepPrimAPI_MakeCylinder(axis, self.r_groove, pitch).Shape()
-                threaded_shape = BRepAlgoAPI_Cut(threaded_shape, groove).Shape()
+            inner_radius = max(self.r_groove, base_radius * 0.85) * 0.99
+            outer_radius = base_radius * 1.02
+            if inner_radius <= 0 or outer_radius <= inner_radius:
+                return shape, base_labels
 
-        new_labels = self._merge_label_map(base_labels, shape, threaded_shape, self.feat_names.index(self.feat_type))
-        return threaded_shape, new_labels
+            ax3 = gp_Ax3(self.thread_axis.Location(), self.thread_axis.Direction())
+
+            cyl1 = Geom_CylindricalSurface(ax3, inner_radius)
+            cyl2 = Geom_CylindricalSurface(ax3, outer_radius)
+
+            thread_height = depth
+            if thread_height <= 0:
+                return shape, base_labels
+
+            base_pitch = max(self.min_len * 0.8, 1.0)
+            turns = max(3, int(thread_height / base_pitch))
+
+            du = 2.0 * math.pi * turns
+            dv = thread_height
+
+            base_pnt = gp_Pnt2d(0.0, 0.0)
+            base_dir = gp_Dir2d(du, dv)
+            line2d = Geom2d_Line(base_pnt, base_dir)
+
+            line_param_len = math.sqrt(du * du + dv * dv)
+
+            helix_curve = Geom2d_TrimmedCurve(line2d, 0.0, line_param_len)
+
+            ep_start = line2d.Value(0.0)
+            ep_end = line2d.Value(line_param_len)
+            segment = GCE2d_MakeSegment(ep_end, ep_start).Value()
+
+            edge1_s1 = BRepBuilderAPI_MakeEdge(helix_curve, cyl1).Edge()
+            edge2_s1 = BRepBuilderAPI_MakeEdge(segment, cyl1).Edge()
+            edge1_s2 = BRepBuilderAPI_MakeEdge(helix_curve, cyl2).Edge()
+            edge2_s2 = BRepBuilderAPI_MakeEdge(segment, cyl2).Edge()
+
+            wire1 = BRepBuilderAPI_MakeWire(edge1_s1, edge2_s1).Wire()
+            wire2 = BRepBuilderAPI_MakeWire(edge1_s2, edge2_s2).Wire()
+
+            breplib_BuildCurves3d(wire1)
+            breplib_BuildCurves3d(wire2)
+
+            tool = BRepOffsetAPI_ThruSections(True)
+            tool.AddWire(wire1)
+            tool.AddWire(wire2)
+            tool.CheckCompatibility(False)
+            thread_solid = tool.Shape()
+
+            thread_solid = create_thread_solid(self.thread_axis, self.r_major, depth)
+
+            if thread_solid.IsNull():
+                print("Error: stud thread_solid is Null")
+                return shape, base_labels
+
+
+            threaded_shape = BRepAlgoAPI_Fuse(shape, thread_solid).Shape()
+
+            if threaded_shape.IsNull():
+                print("Error: stud threaded_shape is Null")
+                return shape, base_labels
+
+            new_labels = self._merge_label_map(base_labels, shape, threaded_shape, self.feat_names.index(self.feat_type))
+            return threaded_shape, new_labels
+        except Exception as e:
+            print(f"Stud thread generation failed: {e}")
+            return shape, base_labels
