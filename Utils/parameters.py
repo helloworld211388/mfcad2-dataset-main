@@ -66,7 +66,8 @@ feat_names = ['chamfer', #0
               'variable_round', #28
               'stud', #29
               'threaded_hole', #30
-              'stock'] #31
+              'gear', #31
+              'stock'] #32
 
 feat_names_planar = ['rectangular_through_slot', #0
              'triangular_through_slot', #1
