@@ -85,6 +85,8 @@ class Gear(AdditiveFeature):
                 # At tooth center (t=0.5), radius is maximum (outer_radius)
                 # At tooth edges (t≈0 or t≈1), radius is minimum (root_radius)
                 # sin(t*π) creates a smooth transition: sin(0)=0, sin(π/2)=1, sin(π)=0
+                # Note: This is a simplified approximation for dataset generation.
+                # True involute gears would require more complex curve calculations.
                 tooth_factor = math.sin(t * math.pi)  
                 radius = root_radius + tooth_factor * (outer_radius - root_radius)
                 
