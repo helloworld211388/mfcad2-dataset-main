@@ -83,8 +83,9 @@ class Gear(AdditiveFeature):
                 
                 # Create a simple tooth profile variation
                 # At tooth center (t=0.5), radius is maximum (outer_radius)
-                # At tooth edges (t=0, t=1), radius is minimum (root_radius)
-                tooth_factor = math.sin(t * math.pi)  # 0 at edges, 1 at center
+                # At tooth edges (t≈0 or t≈1), radius is minimum (root_radius)
+                # sin(t*π) creates a smooth transition: sin(0)=0, sin(π/2)=1, sin(π)=0
+                tooth_factor = math.sin(t * math.pi)  
                 radius = root_radius + tooth_factor * (outer_radius - root_radius)
                 
                 x_2d = radius * math.cos(angle)
@@ -101,7 +102,8 @@ class Gear(AdditiveFeature):
             try:
                 edge = BRepBuilderAPI_MakeEdge(points_3d[i], points_3d[next_i]).Edge()
                 wire_builder.Add(edge)
-            except:
+            except Exception as e:
+                # Skip edges that can't be created (e.g., if points are too close)
                 continue
         
         if not wire_builder.IsDone():
@@ -113,7 +115,8 @@ class Gear(AdditiveFeature):
             face_maker = BRepBuilderAPI_MakeFace(gear_wire)
             if face_maker.IsDone():
                 return face_maker.Face()
-        except:
+        except Exception as e:
+            # Face creation failed, will return None and fallback to circular profile
             pass
         
         return None
@@ -191,5 +194,6 @@ class Gear(AdditiveFeature):
             
             face_maker = BRepBuilderAPI_MakeFace(outer_wire)
             return face_maker.Face()
-        except:
+        except Exception as e:
+            # Fallback circular profile creation failed
             return None

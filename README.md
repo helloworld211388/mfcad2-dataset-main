@@ -18,8 +18,17 @@ See the environment.yml file.
 - In **main.py**, ```combo_range``` parameter changes the min and max number of machining features in the feature sequences.
 - In **main.py**, ```num_samples``` parameter changes the number of CAD models generated.
 - You can change general parameters of the CAD models by changing values in **Utils/parameters.py**.
+- **NEW**: To generate a gear sample, run **generate_gear_sample.py**. See **GEAR_USAGE.md** for details.
 
 (It was found that the fillet/round tool in PythonOCC is not very robust and may cause Python to crash.)
+
+## Available Features
+The system now supports 32 machining features including:
+- Subtractive features (holes, pockets, slots, steps, etc.)
+- Additive features (boss, rib, stud, **gear**)
+- Transition features (chamfer, round, variable round)
+
+For a complete list, see `Utils/parameters.py`.
 
 ## Benchmarks
 | Network | Accuracy (%) | # Parameters |
