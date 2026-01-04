@@ -140,11 +140,20 @@ def get_boundingbox(shape, tol=1e-6, use_mesh=True):
     bbox = Bnd_Box()
     bbox.SetGap(tol)
     if use_mesh:
-        mesh = BRepMesh_IncrementalMesh()
-        mesh.SetParallel(True)
-        mesh.SetShape(shape)
-        mesh.Perform()
-        assert mesh.IsDone()
+        # Newer pythonOCC versions remove SetParallel; use constructor-based
+        # meshing instead and fall back to the simplest available signature.
+        try:
+            # Try modern signature with shape and deflection
+            mesh = BRepMesh_IncrementalMesh(shape, 0.1)
+        except TypeError:
+            # Fallback to legacy no-arg constructor if needed
+            mesh = BRepMesh_IncrementalMesh()
+            mesh.SetShape(shape)
+            mesh.Perform()
+        # If IsDone is available, ensure meshing succeeded
+        if hasattr(mesh, "IsDone"):
+            assert mesh.IsDone()
+
     brepbndlib_Add(shape, bbox, use_mesh)
 
     xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
