@@ -370,34 +370,147 @@ def same_shape_in_list(the_shape, slist):
             return a_shape
     return None
 
+
+def ask_face_centroid(face):
+    """
+    Get centroid of B-Rep face.
+    """
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.BRepGProp import brepgprop
+    mass_props = GProp_GProps()
+    brepgprop.SurfaceProperties(face, mass_props)
+    gPt = mass_props.CentreOfMass()
+
+    return gPt.Coord()
+
+
+def ask_point_uv2(xyz, face):
+    """
+    This is a general function which gives the uv coordinates from the xyz coordinates.
+    The uv value is not normalised.
+    """
+    from OCC.Core.gp import gp_Pnt
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.ShapeAnalysis import ShapeAnalysis_Surface
     
-def map_from_shape_and_name(fmap, old_map, new_shape, new_name):
+    gpPnt = gp_Pnt(float(xyz[0]), float(xyz[1]), float(xyz[2]))
+    surface = BRep_Tool().Surface(face)
+
+    sas = ShapeAnalysis_Surface(surface)
+    gpPnt2D = sas.ValueOfUV(gpPnt, 0.01)
+    uv = list(gpPnt2D.Coord())
+
+    return uv
+
+
+def ask_point_normal_face(uv, face):
+    """
+    Ask the normal vector of a point given the uv coordinate of the point on a face
+    """
+    from OCC.Core.TopoDS import topods_Face
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.GeomLProp import GeomLProp_SLProps
+    from OCC.Core.TopAbs import TopAbs_REVERSED
+    
+    face_ds = topods_Face(face)
+    surface = BRep_Tool().Surface(face_ds)
+    props = GeomLProp_SLProps(surface, uv[0], uv[1], 1, 1e-6)
+
+    gpDir = props.Normal()
+    if face.Orientation() == TopAbs_REVERSED:
+        gpDir.Reverse()
+
+    return gpDir.Coord()
+
+    
+def map_from_shape_and_name(fmap, old_labels, new_shape, new_name, feature_dir=None):
     '''
+    Create label maps for semantic segmentation, instance segmentation, and bottom face identification.
+    
     input
-        fmap: {TopoDS_Face: TopoDS_Face},
-        old_map: {TopoDS_Face: int}
+        fmap: {TopoDS_Face: [TopoDS_Face]}, mapping from old faces to new faces
+        old_labels: dict or tuple
+            - If dict: first feature made, contains only seg_map
+            - If tuple: (seg_map, inst_label, bottom_map) from previous features
         new_shape: TopoDS_Shape
-        new_name: string
+        new_name: int, feature type index
+        feature_dir: gp_Dir, optional, the machining direction for bottom face identification
     output
-        new_map: {TopoDS_Face: int}
+        (new_map, ins_label, new_bottom_label): tuple
+            - new_map: {TopoDS_Face: int} semantic segmentation labels
+            - ins_label: [[TopoDS_Face]] instance segmentation labels (list of face lists per instance)
+            - new_bottom_label: {TopoDS_Face: int} bottom face identification labels (1=bottom, 0=not bottom)
     '''
     new_map = {}
+    new_bottom_label = {}
+
+    if isinstance(old_labels, dict):
+        # first feature made
+        seg_map = old_labels
+        ins_label = []
+        bottom_map = {}
+        # first stock made, all are not bottom face
+        for face in seg_map.keys():
+            bottom_map[face] = 0
+    elif isinstance(old_labels, tuple):
+        seg_map = old_labels[0]
+        ins_label = old_labels[1]
+        bottom_map = old_labels[2]
+    else:
+        assert False, 'Invalid map type: %s' % type(old_labels)
+
     new_faces = occ_utils.list_face(new_shape)
-        
+    new_faces_backup = occ_utils.list_face(new_shape)
+    
+    # after making, some original faces has been modified
     for oldf in fmap:
-        old_name = old_map[oldf]
+        old_seg_name = seg_map[oldf]
+        old_bottom_name = bottom_map[oldf]
         for samef in fmap[oldf]:            
             samef = same_shape_in_list(samef, new_faces)            
             if samef is None:
                 print('no same face')
                 continue
-            new_map[samef] = old_name
+            # update segmantic label
+            new_map[samef] = old_seg_name
+            # update bottom face label
+            new_bottom_label[samef] = old_bottom_name
             new_faces.remove(samef)
     
+    # new added faces are belong to new feature
     for n_face in new_faces:
         new_map[n_face] = new_name
-                    
-    return new_map
+        # determine machining feature feed direction
+        # the normal vector of bottom face is parallel to the machining feed direction
+        if feature_dir:
+            centroid = ask_face_centroid(n_face)
+            uv = ask_point_uv2(centroid, n_face)
+            norm_vec = ask_point_normal_face(uv, n_face)
+            norm_vec = occ_utils.as_occ(norm_vec, gp_Dir)
+            isParallel = feature_dir.IsParallel(norm_vec, 1e-6)
+            new_bottom_label[n_face] = int(isParallel)
+        else: # no direction feature, such as chamfer and round
+            new_bottom_label[n_face] = 0
+
+    # update instance label, after making, some original faces has been removed
+    if len(ins_label) != 0:
+        for ins_idx in range(len(ins_label)):
+            new_inst = []
+            for old_face in ins_label[ins_idx]:
+                if old_face not in fmap:
+                    print('missing old face, which may be deleted')
+                    continue
+                for same_face in fmap[old_face]:            
+                    same_face = same_shape_in_list(same_face, new_faces_backup)            
+                    if same_face is None:
+                        print('no same face')
+                        continue
+                    new_inst.append(same_face)
+            ins_label[ins_idx] = new_inst
+    # add new instance faces
+    ins_label.append(new_faces)
+
+    return new_map, ins_label, new_bottom_label
 
 
 def shape_multiple_hole_feats(base, wlist):

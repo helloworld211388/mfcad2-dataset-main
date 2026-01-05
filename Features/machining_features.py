@@ -649,7 +649,7 @@ class MachiningFeature:
     def _add_sketch(self, bound):
         return None
 
-    def _apply_feature(self, old_shape, old_labels, feat_type, feat_face, depth_dir):
+    def _apply_feature(self, old_shape, old_labels, feat_type, feat_face, depth_dir, bound_max=None):
         feature_maker = BRepFeat_MakePrism()
         feature_maker.Init(old_shape, feat_face, TopoDS_Face(), occ_utils.as_occ(depth_dir, gp_Dir), False, False)
         feature_maker.Build()
@@ -658,7 +658,23 @@ class MachiningFeature:
         shape = feature_maker.Shape()
 
         fmap = shape_factory.map_face_before_and_after_feat(old_shape, feature_maker)
-        new_labels = shape_factory.map_from_shape_and_name(fmap, old_labels, shape, self.feat_names.index(feat_type))
+        
+        # Determine feature direction for bottom face identification
+        # For special cases like through_slot and through_step, use height direction
+        if self.feat_type == 'rectangular_through_slot' or \
+            self.feat_type == 'rectangular_through_step' or \
+            self.feat_type == 'rectangular_blind_step':
+            # find the normal vector of the depth direction, which is the direction of feature height
+            if bound_max is not None:
+                dir_h = bound_max[0] - bound_max[1]
+                feat_dir = occ_utils.as_occ(dir_h, gp_Dir)
+            else:
+                feat_dir = occ_utils.as_occ(depth_dir, gp_Dir)
+        else:
+            feat_dir = occ_utils.as_occ(depth_dir, gp_Dir)
+        
+        new_labels = shape_factory.map_from_shape_and_name(fmap, old_labels, shape, 
+                                                           self.feat_names.index(feat_type), feat_dir)
 
         return shape, new_labels
 
@@ -706,7 +722,8 @@ class MachiningFeature:
         if feat_face is None:
             return self.shape, self.label_map, bounds
 
-        shape, label_map = self._apply_feature(self.shape, self.label_map, self.feat_type, feat_face, bound_max[4] * depth)
+        shape, label_map = self._apply_feature(self.shape, self.label_map, self.feat_type, 
+                                                feat_face, bound_max[4] * depth, bound_max)
 
         topo = TopologyExplorer(shape)
 
@@ -727,7 +744,7 @@ class AdditiveFeature(MachiningFeature):
 
         return random.uniform(self.min_len, max_height)
 
-    def _apply_feature(self, old_shape, old_labels, feat_type, feat_face, depth_dir):
+    def _apply_feature(self, old_shape, old_labels, feat_type, feat_face, depth_dir, bound_max=None):
         feature_maker = BRepFeat_MakePrism()
         feature_maker.Init(old_shape, feat_face, TopoDS_Face(), occ_utils.as_occ(-depth_dir, gp_Dir), True, False)
         feature_maker.Build()
@@ -736,7 +753,10 @@ class AdditiveFeature(MachiningFeature):
         shape = feature_maker.Shape()
 
         fmap = shape_factory.map_face_before_and_after_feat(old_shape, feature_maker)
-        new_labels = shape_factory.map_from_shape_and_name(fmap, old_labels, shape, self.feat_names.index(feat_type))
+        # For additive features, use the negative depth direction for bottom face identification
+        feat_dir = occ_utils.as_occ(-depth_dir, gp_Dir)
+        new_labels = shape_factory.map_from_shape_and_name(fmap, old_labels, shape, 
+                                                           self.feat_names.index(feat_type), feat_dir)
 
         return shape, new_labels
 

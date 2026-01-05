@@ -3,9 +3,9 @@
 1.增加variable_round变半径圆角，https://jingyan.baidu.com/article/9faa72314b54ff063c28cb99.html
 2.增加counterbore沉头孔，countersunk_hole埋头孔
 3.spur_gear齿轮
-4.因为齿轮需要boss凸台(圆柱体形式)，所以凸台也有保留，但是不会单独生成
 
 已放弃：
 2.threaded_hole螺纹孔https://www.rapiddirect.com/zh-CN/blog/threaded-holes/ 螺纹都使用了矩形牙型https://baike.baidu.com/item/%E8%9E%BA%E7%BA%B9/2947720#:~:text=%E8%9E%BA%E7%BA%B9%E6%8C%87%E7%9A%84%E6%98%AF%E5%9C%A8,%E5%8F%8A%E5%85%B6%E4%BB%96%E7%89%B9%E6%AE%8A%E5%BD%A2%E7%8A%B6%E8%9E%BA%E7%BA%B9%E3%80%82
 3.stud螺柱https://zh.wikipedia.org/zh-cn/%E8%9E%BA%E6%A0%93 已
 4.rib加强筋
+5.凸台

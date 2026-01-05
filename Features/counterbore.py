@@ -123,10 +123,10 @@ class Counterbore(MachiningFeature):
 
         try:
             shape, label_map = self._apply_feature(self.shape, self.label_map, self.feat_type,
-                                                   feat_face_inner, bound_max[4] * depth_through)
+                                                   feat_face_inner, bound_max[4] * depth_through, bound_max)
 
             shape, label_map = self._apply_feature(shape, label_map, self.feat_type,
-                                                   feat_face_outer, bound_max[4] * depth_cb)
+                                                   feat_face_outer, bound_max[4] * depth_cb, bound_max)
         except Exception as e:
             print(e)
             return self.shape, self.label_map, bounds

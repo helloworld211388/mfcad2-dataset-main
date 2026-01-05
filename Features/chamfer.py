@@ -46,8 +46,10 @@ class Chamfer(MachiningFeature):
 
         try:
             fmap = shape_factory.map_face_before_and_after_feat(self.shape, chamfer_maker)
+            # Chamfer has no specific direction, so feature_dir is None
             label_map = shape_factory.map_from_shape_and_name(fmap, self.label_map,
-                                                              shape, self.feat_names.index('chamfer'))
+                                                              shape, self.feat_names.index('chamfer'),
+                                                              None)
 
             return shape, label_map, self.edges
         except:

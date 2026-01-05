@@ -132,7 +132,7 @@ class CountersunkHole(MachiningFeature):
         try:
             # Step 1: cylindrical through-hole
             shape, label_map = self._apply_feature(self.shape, self.label_map, self.feat_type,
-                                                   feat_face_cyl, bound_max[4] * depth_through)
+                                                   feat_face_cyl, bound_max[4] * depth_through, bound_max)
 
             # Step 2: conical countersink cut
             axis_cone = gp_Ax2(gp_Pnt(center[0], center[1], center[2]),
@@ -146,8 +146,11 @@ class CountersunkHole(MachiningFeature):
             shape2 = cut_maker.Shape()
 
             fmap = shape_factory.map_face_before_and_after_feat(shape, cut_maker)
+            # Use the depth direction for bottom face identification
+            feat_dir = occ_utils.as_occ(bound_max[4].tolist(), gp_Dir)
             label_map2 = shape_factory.map_from_shape_and_name(fmap, label_map, shape2,
-                                                               self.feat_names.index(self.feat_type))
+                                                               self.feat_names.index(self.feat_type),
+                                                               feat_dir)
         except Exception as e:
             print(e)
             return self.shape, self.label_map, bounds

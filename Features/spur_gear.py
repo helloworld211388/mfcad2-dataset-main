@@ -418,7 +418,7 @@ class SpurGear(AdditiveFeature):
             return None
 
     @staticmethod
-    def _merge_label_map(old_map, old_shape, new_shape, feat_idx):
+    def _merge_label_map(old_labels, old_shape, new_shape, feat_idx):
         """
         Merge label maps after Boolean operations.
         
@@ -426,30 +426,74 @@ class SpurGear(AdditiveFeature):
         and assigns the gear feature label to newly created faces.
         
         Args:
-            old_map: Original label map {TopoDS_Face: int}
+            old_labels: Original label map - can be dict or tuple (seg_map, inst_label, bottom_map)
             old_shape: Original shape before Boolean operation
             new_shape: New shape after Boolean operation
             feat_idx: Feature index for new faces
             
         Returns:
-            dict: New label map {TopoDS_Face: int}
+            tuple: (new_seg_map, new_inst_label, new_bottom_map)
         """
-        new_labels = {}
+        # Handle both dict and tuple formats
+        if isinstance(old_labels, dict):
+            old_seg_map = old_labels
+            old_inst_label = []
+            old_bottom_map = {face: 0 for face in old_seg_map.keys()}
+        elif isinstance(old_labels, tuple):
+            old_seg_map = old_labels[0]
+            old_inst_label = old_labels[1]
+            old_bottom_map = old_labels[2]
+        else:
+            raise ValueError(f"Invalid old_labels type: {type(old_labels)}")
+        
+        new_seg_map = {}
+        new_bottom_map = {}
         old_faces = occ_utils.list_face(old_shape)
         new_faces = occ_utils.list_face(new_shape)
+        new_faces_backup = occ_utils.list_face(new_shape)
         
         # Map old faces to new faces that are the same
         for of in old_faces:
             same = shape_factory.same_shape_in_list(of, new_faces)
             if same is not None:
-                new_labels[same] = old_map.get(of, feat_idx)
+                new_seg_map[same] = old_seg_map.get(of, feat_idx)
+                new_bottom_map[same] = old_bottom_map.get(of, 0)
                 new_faces.remove(same)
         
-        # Assign gear label to all new faces
+        # Assign gear label to all new faces (not bottom faces)
         for nf in new_faces:
-            new_labels[nf] = feat_idx
+            new_seg_map[nf] = feat_idx
+            new_bottom_map[nf] = 0  # New faces from gear are not bottom faces
         
-        return new_labels
+        # Update instance labels
+        new_inst_label = []
+        if len(old_inst_label) != 0:
+            for inst in old_inst_label:
+                new_inst = []
+                for old_face in inst:
+                    same = shape_factory.same_shape_in_list(old_face, new_faces_backup)
+                    if same is not None:
+                        new_inst.append(same)
+                if new_inst:
+                    new_inst_label.append(new_inst)
+        
+        # Add new instance for the gear faces
+        gear_faces = [nf for nf in new_faces_backup if nf not in [shape_factory.same_shape_in_list(of, new_faces_backup) for of in old_faces if shape_factory.same_shape_in_list(of, new_faces_backup) is not None]]
+        # Simpler: just use the new_faces list (faces that weren't matched to old faces)
+        new_gear_faces = []
+        for nf in new_faces_backup:
+            is_old = False
+            for of in old_faces:
+                if shape_factory.same_shape_in_list(of, [nf]) is not None:
+                    is_old = True
+                    break
+            if not is_old:
+                new_gear_faces.append(nf)
+        
+        if new_gear_faces:
+            new_inst_label.append(new_gear_faces)
+        
+        return new_seg_map, new_inst_label, new_bottom_map
 
     @staticmethod
     def _validate_topology(shape):
@@ -537,8 +581,10 @@ class SpurGear(AdditiveFeature):
             
             # Get face mapping for label update
             fmap = shape_factory.map_face_before_and_after_feat(old_shape, feature_maker)
+            # Use the negative depth direction for bottom face identification (additive feature)
+            feat_dir = occ_utils.as_occ(-depth_dir, gp_Dir)
             base_labels = shape_factory.map_from_shape_and_name(
-                fmap, old_labels, cylinder_shape, self.feat_names.index(feat_type))
+                fmap, old_labels, cylinder_shape, self.feat_names.index(feat_type), feat_dir)
             
             # Store the face width for tooth slot creation
             self.face_width = depth

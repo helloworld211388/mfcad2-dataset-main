@@ -256,6 +256,89 @@ def display_bounds(bounds, display, color):
     return display
 
 
+def get_segmentation_label(faces_list, seg_map):
+    '''
+    Create map between face id and segmentation label
+    
+    Args:
+        faces_list: list of TopoDS_Face
+        seg_map: {TopoDS_Face: int} semantic segmentation map
+    
+    Returns:
+        faceid_label_map: {int: int} mapping from face index to label
+    '''
+    faceid_label_map = {}
+    for face in faces_list:
+        face_idx = faces_list.index(face)    
+        faceid_label_map[face_idx] = seg_map[face]
+
+    return faceid_label_map
+
+
+def get_instance_label(faces_list, num_faces, inst_map):
+    '''
+    Create relation_matrix describing the feature instances.
+    Each row represents a face, and each column represents whether that face
+    belongs to the same instance as the row face.
+    
+    Args:
+        faces_list: list of TopoDS_Face
+        num_faces: int, number of faces
+        inst_map: [[TopoDS_Face]] list of face lists per instance
+    
+    Returns:
+        relation_matrix: list of lists, symmetric matrix where 1 indicates same instance
+    '''
+    import numpy as np
+    
+    relation_matrix = np.zeros((num_faces, num_faces), dtype=np.uint8)
+
+    for inst in inst_map:
+        for row_inst_face in inst:
+            if row_inst_face not in faces_list:
+                print('WARNING! missing face', row_inst_face.__hash__()) 
+                continue
+            row_face_idx = faces_list.index(row_inst_face) 
+            # In the face_idx row, all instance faces are labeled as 1
+            for col_inst_face in inst:
+                if col_inst_face not in faces_list:
+                    print('WARNING! missing face', col_inst_face.__hash__()) 
+                    continue
+                col_face_idx = faces_list.index(col_inst_face)
+                relation_matrix[row_face_idx][col_face_idx] = 1
+
+    assert relation_matrix.any(), 'relation_matrix is empty'
+    assert np.allclose(relation_matrix, relation_matrix.T), 'relation_matrix is not symmetric'
+
+    return relation_matrix.tolist()
+
+
+def get_bottom_label(faces_list, bottom_map):
+    '''
+    Create map between face id and bottom identification label
+    
+    Args:
+        faces_list: list of TopoDS_Face
+        bottom_map: {TopoDS_Face: int} bottom face map (1=bottom, 0=not bottom)
+    
+    Returns:
+        faceid_bottom_map: {int: int} mapping from face index to bottom label
+    '''
+    faceid_bottom_map = {}
+    for face in faces_list:
+        face_idx = faces_list.index(face)    
+        faceid_bottom_map[face_idx] = bottom_map[face]
+
+    return faceid_bottom_map
+
+
+def save_json_data(pathname, data):
+    import json
+    """Export a data to a json file"""
+    with open(pathname, 'w', encoding='utf8') as fp:
+        json.dump(data, fp, indent=4, ensure_ascii=False, sort_keys=False)
+
+
 if __name__ == '__main__':
     from OCC.Display import SimpleGui
 
