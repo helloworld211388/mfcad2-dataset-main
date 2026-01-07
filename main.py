@@ -5,7 +5,9 @@ The number of machining features is defined by the combination range.
 To change the parameters of each machining feature, please see parameters.py
 """
 
-from multiprocessing import Pool
+from multiprocessing import Process
+import multiprocessing
+import time
 from itertools import combinations_with_replacement
 import Utils.shape as shape
 import Utils.parameters as param
@@ -65,20 +67,28 @@ def save_shape(shape, step_path, seg_map, save_face_label=False):
     shape_with_fid_to_step(step_path, shape, seg_map, save_face_label)
 
 
-def save_label(shape_name, pathname, seg_label, relation_matrix, bottom_label):
-    """Export labels to a json file.
+def save_label(pathname, cls_label, seg_label, bottom_label):
+    """Export labels to a json file in the target format.
     
-    :param shape_name: Name of the shape
+    Format:
+    {
+        "cls": {"0": label, "1": label, ...},      // semantic segmentation
+        "seg": [[face_ids], [face_ids], ...],      // instance segmentation  
+        "bottom": {"0": 0/1, "1": 0/1, ...}        // bottom face identification
+    }
+    
     :param pathname: Path to save JSON file
-    :param seg_label: Semantic segmentation labels {face_id: label}
-    :param relation_matrix: Instance segmentation matrix (list of lists)
-    :param bottom_label: Bottom face identification labels {face_id: 0/1}
+    :param cls_label: Semantic segmentation labels {str: int}
+    :param seg_label: Instance segmentation labels [[int]]
+    :param bottom_label: Bottom face identification labels {str: int}
     """
-    data = [
-        [shape_name, {'seg': seg_label, 'inst': relation_matrix, 'bottom': bottom_label}]
-    ]
+    data = {
+        "cls": cls_label,
+        "seg": seg_label,
+        "bottom": bottom_label
+    }
     with open(pathname, 'w', encoding='utf8') as fp:
-        json.dump(data, fp, indent=4, ensure_ascii=False, sort_keys=False)
+        json.dump(data, fp, ensure_ascii=False)
 
 
 def generate_shape(shape_dir, combination, count):
@@ -115,17 +125,14 @@ def generate_shape(shape_dir, combination, count):
         print(f'Empty shape {shape_name}')
         return False
     
-    # Create semantic segmentation labels
-    seg_label = feature_creation.get_segmentation_label(faces_list, seg_map)
-    if len(seg_label) != len(faces_list):
-        print(f'Shape {shape_name} has wrong number of seg labels {len(seg_label)} with faces {len(faces_list)}')
+    # Create semantic segmentation labels (cls)
+    cls_label = feature_creation.get_cls_label(faces_list, seg_map)
+    if len(cls_label) != len(faces_list):
+        print(f'Shape {shape_name} has wrong number of cls labels {len(cls_label)} with faces {len(faces_list)}')
         return False
     
-    # Create instance segmentation labels (relation matrix)
-    relation_matrix = feature_creation.get_instance_label(faces_list, len(faces_list), inst_label)
-    if len(relation_matrix) != len(faces_list):
-        print(f'Shape {shape_name} has wrong number of instance labels {len(relation_matrix)} with faces {len(faces_list)}')
-        return False
+    # Create instance segmentation labels (seg)
+    seg_label = feature_creation.get_seg_label(faces_list, inst_label)
     
     # Create bottom face identification labels
     bottom_label = feature_creation.get_bottom_label(faces_list, bottom_map)
@@ -136,18 +143,14 @@ def generate_shape(shape_dir, combination, count):
     # Create directories if needed
     step_dir = os.path.join(shape_dir, 'steps')
     label_dir = os.path.join(shape_dir, 'labels')
-    if not os.path.exists(step_dir):
-        os.makedirs(step_dir)
-    if not os.path.exists(label_dir):
-        os.makedirs(label_dir)
-    
+
     # Save files
     step_path = os.path.join(step_dir, shape_name + '.step')
     label_path = os.path.join(label_dir, shape_name + '.json')
     
     try:
         save_shape(generated_shape, step_path, seg_map, save_face_label=True)
-        save_label(shape_name, label_path, seg_label, relation_matrix, bottom_label)
+        save_label(label_path, cls_label, seg_label, bottom_label)
         print(f'Successfully saved {shape_name}')
         return True
     except Exception as e:
@@ -160,27 +163,65 @@ if __name__ == '__main__':
     shape_dir = 'data'
     num_features = len(param.feat_names) - 1  # All available features (excluding 'stock')
     combo_range = [3, 4]  # Range of features per combination
-    num_samples = 10  # Number of samples to generate
+    num_samples = 1000  # Number of samples to generate
 
     if not os.path.exists(shape_dir):
         os.mkdir(shape_dir)
+    os.makedirs(os.path.join(shape_dir, 'steps'), exist_ok=True)
+    os.makedirs(os.path.join(shape_dir, 'labels'), exist_ok=True)
 
     # Option 1: Generate random combinations
-    # combos = []
-    # for num_combo in range(combo_range[0], combo_range[1]):
-    #     combos += list(combinations_with_replacement(range(num_features), num_combo))
-    # random.shuffle(combos)
-    # test_combos = combos[:num_samples]
-    # for count, combo in enumerate(test_combos):
-    #     print(f"{count}: {combo}")
-    #     generate_shape(shape_dir, combo, count)
+    target_features = ['counterbore', 'countersunk_hole', 'variable_round']
+    try:
+        feature_pool = [param.feat_names.index(feat) for feat in target_features]
+    except ValueError as e:
+        print(f"Error finding feature index: {e}")
+        # Fallback if names don't match exactly, though they should based on previous edits
+        # This is just a safety measure
+        feature_pool = [24, 25, 26]
+
+    max_workers = max(1, multiprocessing.cpu_count() - 1)  # Leave one core for system/main loop
+    processes = []
+    print(f"Starting generation with {max_workers} parallel workers...")
+
+    for count in range(num_samples):
+        # Generate a random combination of features allowing repetition
+        num_combo = combo_range[0] # Default to 3
+        combo = tuple([random.choice(feature_pool) for _ in range(num_combo)])
+
+        # Manage the process pool
+        while len(processes) >= max_workers:
+            # Check for finished processes
+            # Iterate over a copy of the list to allow modification
+            for p in processes[:]:
+                if not p.is_alive():
+                    p.join()
+                    if p.exitcode != 0:
+                        print(f"Warning: A shape generation process crashed (exit code {p.exitcode}). Skipping.")
+                    processes.remove(p)
+
+            # If still full, wait a bit
+            if len(processes) >= max_workers:
+                time.sleep(0.01)
+
+        print(f"Starting {count}: {combo}")
+        # Run generation in a separate process
+        p = Process(target=generate_shape, args=(shape_dir, combo, count))
+        p.start()
+        processes.append(p)
+
+    # Wait for all remaining processes to finish
+    for p in processes:
+        p.join()
+        if p.exitcode != 0:
+            print(f"Warning: A shape generation process crashed (exit code {p.exitcode}). Skipping.")
 
     # Option 2: Generate one sample per feature type
-    unique_combos = []
-    for i in range(num_features - 2, num_features):  # Last two features
-        unique_combos.append([i])
-
-    for i in range(len(unique_combos)):
-        feat_name = param.feat_names[unique_combos[i][0]]
-        print(f"Generating feature: {feat_name}")
-        generate_shape(shape_dir, unique_combos[i], feat_name)
+    # unique_combos = []
+    # for i in range(num_features - 4, num_features-1):  # 取我自己新生成的三个特征。去除齿轮
+    #     unique_combos.append([i])
+    #
+    # for i in range(len(unique_combos)):
+    #     feat_name = param.feat_names[unique_combos[i][0]]
+    #     print(f"Generating feature: {feat_name}")
+    #     generate_shape(shape_dir, unique_combos[i], feat_name)

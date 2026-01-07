@@ -28,12 +28,6 @@ variable_round_radius_max = 5.0
 chamfer_depth_min = 0.1 # 1
 chamfer_depth_max = 4.0 #4
 
-# Spur Gear Parameters
-spur_gear_teeth_min = 8
-spur_gear_teeth_max = 30
-spur_gear_module_min = 0.5
-spur_gear_module_max = 2.0
-
 # Possible Machining Features
 feat_names = ['chamfer', #0
               'through_hole', #1
@@ -62,8 +56,7 @@ feat_names = ['chamfer', #0
               'counterbore', #24
               'countersunk_hole', #25
               'variable_round', #26
-              'spur_gear', #27
-              'stock'] #28
+              'stock'] #27
 
 feat_names_planar = ['rectangular_through_slot', #0
              'triangular_through_slot', #1
