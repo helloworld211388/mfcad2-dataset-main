@@ -45,7 +45,7 @@ feat_names = ['chamfer', 'through_hole', 'triangular_passage', 'rectangular_pass
               'rectangular_blind_slot', 'v_circular_end_blind_slot', 'h_circular_end_blind_slot',
               'triangular_blind_step', 'circular_blind_step', 'rectangular_blind_step', 'round',
               'counterbore', 'countersunk_hole', 'variable_round',
-              'stock']
+              'plane', 'cylinder', 'cone']
 
 feat_classes = {"chamfer": Chamfer, "through_hole": ThroughHole, "triangular_passage": TriangularPassage,
                 "rectangular_passage": RectangularPassage, "6sides_passage": SixSidesPassage,
@@ -177,7 +177,7 @@ def shape_from_directive(combo):
     while True:
         generate_stock_dims()
         shape = BRepPrimAPI_MakeBox(param.stock_dim_x, param.stock_dim_y, param.stock_dim_z).Shape()
-        label_map = shape_factory.map_from_name(shape, param.feat_names.index('stock'))
+        label_map = shape_factory.map_from_name(shape, param.feat_names.index('plane'))
 
         for fid in combo:
             feat_name = param.feat_names[fid]

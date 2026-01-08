@@ -348,17 +348,41 @@ def map_face_before_and_after_feat(base, feature_maker):
 
 def map_from_name(shape, name):
     '''
+    Create a label map for faces based on their surface type.
+    For stock shapes, faces are labeled as 'plane', 'cylinder', or 'cone' based on their geometry.
+    
     input
         shape: TopoDS_Shape
-        name: string
+        name: int, feature type index (used for non-stock features)
     output
         name_map: {TopoDS_Face: int}
     '''
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder, GeomAbs_Cone
+    import Utils.parameters as param
+    
     name_map = {}
     faces = occ_utils.list_face(shape)
 
     for one_face in faces:
-        name_map[one_face] = name
+        # Check if this is a stock face (plane, cylinder, or cone)
+        # by checking if name corresponds to one of these types
+        if name == param.feat_names.index('plane'):
+            # Determine the actual surface type
+            surf = BRepAdaptor_Surface(one_face, True)
+            surf_type = surf.GetType()
+            
+            if surf_type == GeomAbs_Plane:
+                name_map[one_face] = param.feat_names.index('plane')
+            elif surf_type == GeomAbs_Cylinder:
+                name_map[one_face] = param.feat_names.index('cylinder')
+            elif surf_type == GeomAbs_Cone:
+                name_map[one_face] = param.feat_names.index('cone')
+            else:
+                # Default to plane for other surface types
+                name_map[one_face] = param.feat_names.index('plane')
+        else:
+            name_map[one_face] = name
 
     return name_map
 

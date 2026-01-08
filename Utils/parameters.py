@@ -56,7 +56,9 @@ feat_names = ['chamfer', #0
               'counterbore', #24
               'countersunk_hole', #25
               'variable_round', #26
-              'stock'] #27
+              'plane', #27
+              'cylinder', #28
+              'cone'] #29
 
 feat_names_planar = ['rectangular_through_slot', #0
              'triangular_through_slot', #1
@@ -73,4 +75,4 @@ feat_names_planar = ['rectangular_through_slot', #0
              'triangular_pocket', #12
              '6sides_pocket', #13
              'chamfer', #14
-             'stock'] #15
+             'plane'] #15
