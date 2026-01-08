@@ -160,7 +160,7 @@ def generate_shape(shape_dir, combination, count):
 
 if __name__ == '__main__':
     # 参数设置
-    shape_dir = 'data'
+    shape_dir = '../myDatasets'
     num_features = 27  # 27类加工特征（排除后3个基础几何体：plane, cylinder, cone）
     combo_range = [3, 10]  # 每个零件包含的特征数量范围：3-10个
     num_samples = 30000  # 生成零件总数：30000个
