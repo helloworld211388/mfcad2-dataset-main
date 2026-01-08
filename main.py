@@ -159,34 +159,29 @@ def generate_shape(shape_dir, combination, count):
 
 
 if __name__ == '__main__':
-    # Parameters to be set before use
+    # 参数设置
     shape_dir = 'data'
-    num_features = len(param.feat_names) - 1  # All available features (excluding 'stock')
-    combo_range = [3, 4]  # Range of features per combination
-    num_samples = 1000  # Number of samples to generate
+    num_features = 27  # 27类加工特征（排除后3个基础几何体：plane, cylinder, cone）
+    combo_range = [3, 10]  # 每个零件包含的特征数量范围：3-10个
+    num_samples = 30000  # 生成零件总数：30000个
 
     if not os.path.exists(shape_dir):
         os.mkdir(shape_dir)
     os.makedirs(os.path.join(shape_dir, 'steps'), exist_ok=True)
     os.makedirs(os.path.join(shape_dir, 'labels'), exist_ok=True)
 
-    # Option 1: Generate random combinations
-    target_features = ['counterbore', 'countersunk_hole', 'variable_round']
-    try:
-        feature_pool = [param.feat_names.index(feat) for feat in target_features]
-    except ValueError as e:
-        print(f"Error finding feature index: {e}")
-        # Fallback if names don't match exactly, though they should based on previous edits
-        # This is just a safety measure
-        feature_pool = [24, 25, 26]
+    # 特征池：使用前27个加工特征（索引0-26），排除后3个基础几何体
+    # feat_names前27个: chamfer, through_hole, ..., round, counterbore, countersunk_hole, variable_round
+    # 排除的后3个: plane, cylinder, cone
+    feature_pool = list(range(num_features))  # [0, 1, 2, ..., 26]
 
-    max_workers = max(1, multiprocessing.cpu_count() - 1)  # Leave one core for system/main loop
+    max_workers = max(1, multiprocessing.cpu_count() - 1)  # 保留一个核心给系统
     processes = []
     print(f"Starting generation with {max_workers} parallel workers...")
 
     for count in range(num_samples):
-        # Generate a random combination of features allowing repetition
-        num_combo = combo_range[0] # Default to 3
+        # 随机选择特征数量（3-10之间）和特征组合
+        num_combo = random.randint(combo_range[0], combo_range[1])
         combo = tuple([random.choice(feature_pool) for _ in range(num_combo)])
 
         # Manage the process pool
