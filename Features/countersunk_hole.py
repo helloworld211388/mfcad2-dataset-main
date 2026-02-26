@@ -151,6 +151,7 @@ class CountersunkHole(MachiningFeature):
             label_map2 = shape_factory.map_from_shape_and_name(fmap, label_map, shape2,
                                                                self.feat_names.index(self.feat_type),
                                                                feat_dir)
+            label_map2 = self._merge_last_two_instances(label_map2)
         except Exception as e:
             print(e)
             return self.shape, self.label_map, bounds
@@ -160,3 +161,24 @@ class CountersunkHole(MachiningFeature):
             return self.shape, self.label_map, bounds
 
         return shape2, label_map2, self.bounds
+
+    @staticmethod
+    def _merge_last_two_instances(labels):
+        if not isinstance(labels, tuple) or len(labels) != 3:
+            return labels
+
+        seg_map, inst_label, bottom_map = labels
+        if len(inst_label) < 2:
+            return labels
+
+        merged = []
+        seen = set()
+        for face in inst_label[-2] + inst_label[-1]:
+            h = face.__hash__()
+            if h in seen:
+                continue
+            seen.add(h)
+            merged.append(face)
+
+        inst_label = inst_label[:-2] + [merged]
+        return seg_map, inst_label, bottom_map

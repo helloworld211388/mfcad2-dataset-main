@@ -127,6 +127,7 @@ class Counterbore(MachiningFeature):
 
             shape, label_map = self._apply_feature(shape, label_map, self.feat_type,
                                                    feat_face_outer, bound_max[4] * depth_cb, bound_max)
+            label_map = self._merge_last_two_instances(label_map)
         except Exception as e:
             print(e)
             return self.shape, self.label_map, bounds
@@ -136,3 +137,24 @@ class Counterbore(MachiningFeature):
             return self.shape, self.label_map, bounds
 
         return shape, label_map, self.bounds
+
+    @staticmethod
+    def _merge_last_two_instances(labels):
+        if not isinstance(labels, tuple) or len(labels) != 3:
+            return labels
+
+        seg_map, inst_label, bottom_map = labels
+        if len(inst_label) < 2:
+            return labels
+
+        merged = []
+        seen = set()
+        for face in inst_label[-2] + inst_label[-1]:
+            h = face.__hash__()
+            if h in seen:
+                continue
+            seen.add(h)
+            merged.append(face)
+
+        inst_label = inst_label[:-2] + [merged]
+        return seg_map, inst_label, bottom_map
