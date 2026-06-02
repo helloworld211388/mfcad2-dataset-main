@@ -122,6 +122,10 @@ def classify_tricolor_face(face_label, target_label, bottom_value):
     return "bottom" if int(bottom_value) == 1 else "feature"
 
 
+def face_index_map(shape):
+    return {face: idx for idx, face in enumerate(occ_utils.list_face(shape))}
+
+
 def load_view_presets(path):
     preset_path = Path(path)
     if not preset_path.exists():
@@ -237,6 +241,26 @@ def build_colored_ais(shape, id_map, feature_name, base_color=None, highlight_co
 
     for face in occ_utils.list_face(shape):
         ais.SetCustomColor(face, highlight if id_map.get(face) == target_label else base)
+
+    return ais
+
+
+def build_tricolor_ais(shape, id_map, feature_name, bottom_label):
+    ais = AIS_ColoredShape(shape)
+    target_label = param.feat_names.index(feature_name)
+    indices = face_index_map(shape)
+    role_colors = {
+        "stock": STOCK_COLOR,
+        "feature": FEATURE_COLOR,
+        "bottom": BOTTOM_COLOR,
+    }
+
+    for face in occ_utils.list_face(shape):
+        face_idx = str(indices[face])
+        if face_idx not in bottom_label:
+            raise ValueError(f"Missing bottom label for face index {face_idx}")
+        role = classify_tricolor_face(id_map.get(face), target_label, bottom_label[face_idx])
+        ais.SetCustomColor(face, role_colors[role])
 
     return ais
 

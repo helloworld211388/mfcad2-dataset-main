@@ -61,6 +61,14 @@ class FeatureViewerCommonTest(unittest.TestCase):
         self.assertEqual(classify_tricolor_face(14, 14, 0), "feature")
         self.assertEqual(classify_tricolor_face(27, 14, 0), "stock")
 
+    def test_load_and_validate_label_json_requires_all_keys(self):
+        with TemporaryDirectory() as tmp:
+            json_path = Path(tmp) / "bad.json"
+            json_path.write_text(json.dumps({"cls": {}, "bottom": {}}), encoding="utf8")
+
+            with self.assertRaisesRegex(ValueError, "missing 'seg'"):
+                load_and_validate_label_json(json_path, expected_face_count=0)
+
 
 if __name__ == "__main__":
     unittest.main()
