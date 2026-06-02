@@ -22,6 +22,7 @@ from feature_viewer_common import (
     infer_feature_name_from_stem,
     load_and_validate_label_json,
     load_view_presets,
+    resolve_png_output_path,
     resolve_label_json_path,
     save_view_presets,
     set_standard_display_style,
@@ -60,10 +61,11 @@ class ExportViewerDialog(QtWidgets.QDialog):
 
 
 class StepViewerWindow(QtWidgets.QMainWindow):
-    def __init__(self, directory, preset_path):
+    def __init__(self, directory, preset_path, image_dir=None):
         super().__init__()
         self.directory = Path(directory).resolve()
         self.preset_path = Path(preset_path).resolve()
+        self.image_dir = Path(image_dir).resolve() if image_dir else None
         self.presets = load_view_presets(self.preset_path)
         self.current_step_path = None
         self.current_shape = None
@@ -265,7 +267,8 @@ class StepViewerWindow(QtWidgets.QMainWindow):
     def save_png(self):
         if self.current_step_path is None:
             return
-        png_path = self.current_step_path.with_suffix(".png")
+        png_path = resolve_png_output_path(self.current_step_path, self.image_dir)
+        png_path.parent.mkdir(parents=True, exist_ok=True)
         camera = capture_camera(self.display)
         export_dialog = ExportViewerDialog(self)
         export_dialog.initialize()
@@ -306,6 +309,11 @@ def build_parser():
         default=str(Path(__file__).resolve().parent / "view_presets.json"),
         help="JSON file used to persist per-file camera presets.",
     )
+    parser.add_argument(
+        "--image-dir",
+        default=None,
+        help="Optional directory for Save PNG output. Paper gallery steps default to ../png.",
+    )
     return parser
 
 
@@ -314,7 +322,7 @@ def main():
     args = parser.parse_args()
 
     app = QtWidgets.QApplication(sys.argv)
-    window = StepViewerWindow(args.dir, args.view_presets)
+    window = StepViewerWindow(args.dir, args.view_presets, args.image_dir)
     window.show()
     return app.exec_()
 

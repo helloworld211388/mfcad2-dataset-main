@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from visualization.feature_viewer_common import (
     classify_tricolor_face,
     load_and_validate_label_json,
+    resolve_png_output_path,
     resolve_label_json_path,
     temporary_parameter_overrides,
 )
@@ -35,6 +36,22 @@ class FeatureViewerCommonTest(unittest.TestCase):
             json_path.write_text('{"cls": {}, "seg": [], "bottom": {}}', encoding="utf8")
 
             self.assertEqual(resolve_label_json_path(step_path), json_path)
+
+    def test_resolve_png_output_path_paper_gallery_layout(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "paper_feature_gallery"
+            step_dir = root / "steps"
+            step_dir.mkdir(parents=True)
+            step_path = step_dir / "Through_hole.step"
+
+            self.assertEqual(resolve_png_output_path(step_path), root / "png" / "Through_hole.png")
+
+    def test_resolve_png_output_path_uses_explicit_image_dir(self):
+        with TemporaryDirectory() as tmp:
+            step_path = Path(tmp) / "Chamfer.step"
+            image_dir = Path(tmp) / "custom_png"
+
+            self.assertEqual(resolve_png_output_path(step_path, image_dir), image_dir / "Chamfer.png")
 
     def test_missing_label_json_raises(self):
         with TemporaryDirectory() as tmp:

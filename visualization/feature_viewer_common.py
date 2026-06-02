@@ -96,6 +96,15 @@ def resolve_label_json_path(step_path):
     raise FileNotFoundError(f"Missing label JSON for STEP: {step_path}")
 
 
+def resolve_png_output_path(step_path, image_dir=None):
+    step_path = Path(step_path).resolve()
+    if image_dir is not None:
+        return Path(image_dir).resolve() / f"{step_path.stem}.png"
+    if step_path.parent.name == "steps" and step_path.parent.parent.name == "paper_feature_gallery":
+        return step_path.parent.parent / "png" / f"{step_path.stem}.png"
+    return step_path.with_suffix(".png")
+
+
 def load_and_validate_label_json(label_path, expected_face_count):
     label_path = Path(label_path)
     with label_path.open("r", encoding="utf8") as fp:
@@ -327,6 +336,36 @@ def compute_auto_camera(shape, id_map, feature_name):
     up = _choose_up(camera_dir)
     distance = max(diag * 2.4, 1.0)
     eye = _add(at, _scale(camera_dir, distance))
+
+    return {
+        "eye": [eye[0], eye[1], eye[2]],
+        "at": [at[0], at[1], at[2]],
+        "up": [up[0], up[1], up[2]],
+    }
+
+
+def compute_paper_camera(shape, id_map, feature_name):
+    highlight_faces = get_highlight_faces(shape, id_map, feature_name)
+    if not highlight_faces:
+        return None
+
+    shape_center, diag = bbox_center_and_diag(shape)
+    total_area = sum(face_area(face) for face in highlight_faces) or float(len(highlight_faces))
+    highlight_center = (0.0, 0.0, 0.0)
+    for face in highlight_faces:
+        center, _ = face_center_and_normal(face)
+        weight = face_area(face) / total_area if total_area > 0 else 1.0 / len(highlight_faces)
+        highlight_center = _add(highlight_center, _scale(center, weight))
+
+    drift = _sub(highlight_center, shape_center)
+    camera_dir = _normalize((drift[0] * 0.9 + 0.75, drift[1] * 0.9 - 0.95, drift[2] * 0.45 + 0.72))
+    if _length(drift) < 1e-6:
+        camera_dir = _normalize((0.8, -1.0, 0.65))
+
+    at = _blend(shape_center, highlight_center, 0.58)
+    distance = max(diag * 2.25, 1.0)
+    eye = _add(at, _scale(camera_dir, distance))
+    up = _choose_up(camera_dir)
 
     return {
         "eye": [eye[0], eye[1], eye[2]],

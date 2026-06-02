@@ -31,6 +31,7 @@ from feature_viewer_common import (
     apply_camera,
     build_tricolor_ais,
     compute_auto_camera,
+    compute_paper_camera,
     load_and_validate_label_json,
     load_view_presets,
     pretty_name,
@@ -141,7 +142,7 @@ def export_step_preview(step_path, image_path, feature_name, label_path, presets
     if preset:
         apply_camera(display, preset, fit_after=False)
     else:
-        camera = compute_auto_camera(shape, id_map, feature_name)
+        camera = compute_paper_camera(shape, id_map, feature_name) or compute_auto_camera(shape, id_map, feature_name)
         if camera:
             apply_camera(display, camera, fit_after=True)
         else:
