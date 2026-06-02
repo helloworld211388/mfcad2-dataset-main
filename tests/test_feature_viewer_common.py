@@ -7,7 +7,9 @@ from visualization.feature_viewer_common import (
     classify_tricolor_face,
     load_and_validate_label_json,
     resolve_label_json_path,
+    temporary_parameter_overrides,
 )
+import Utils.parameters as param
 
 
 class FeatureViewerCommonTest(unittest.TestCase):
@@ -68,6 +70,12 @@ class FeatureViewerCommonTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "missing 'seg'"):
                 load_and_validate_label_json(json_path, expected_face_count=0)
+
+    def test_temporary_parameter_overrides_restore_values(self):
+        original = param.stock_min_x
+        with temporary_parameter_overrides({"stock_min_x": original + 10.0}):
+            self.assertEqual(param.stock_min_x, original + 10.0)
+        self.assertEqual(param.stock_min_x, original)
 
 
 if __name__ == "__main__":

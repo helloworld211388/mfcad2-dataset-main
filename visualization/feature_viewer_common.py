@@ -1,5 +1,6 @@
 import json
 import math
+from contextlib import contextmanager
 from pathlib import Path
 
 from OCC.Core.AIS import AIS_ColoredShape
@@ -120,6 +121,18 @@ def classify_tricolor_face(face_label, target_label, bottom_value):
     if face_label != target_label:
         return "stock"
     return "bottom" if int(bottom_value) == 1 else "feature"
+
+
+@contextmanager
+def temporary_parameter_overrides(overrides):
+    previous = {name: getattr(param, name) for name in overrides}
+    try:
+        for name, value in overrides.items():
+            setattr(param, name, value)
+        yield
+    finally:
+        for name, value in previous.items():
+            setattr(param, name, value)
 
 
 def face_index_map(shape):
