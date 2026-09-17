@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import multiprocessing as mp
 import random
 import shutil
@@ -25,6 +26,7 @@ import feature_creation
 import Utils.occ_utils as occ_utils
 import Utils.parameters as param
 from Features.machining_features import MachiningFeature
+from Features.variable_round import VariableRound
 from Utils.shape import shape_with_fid_from_step
 from feature_viewer_common import (
     FEATURE_NAMES,
@@ -60,12 +62,92 @@ PAPER_PARAMETER_OVERRIDES = {
 
 PAPER_SHIFTER_MIN = 0.45
 PAPER_SHIFTER_MAX = 0.85
+PAPER_LARGE_OPENING_FEATURES = {
+    "6sides_pocket",
+    "6sides_passage",
+    "rectangular_passage",
+    "triangular_passage",
+    "triangular_pocket",
+    "blind_hole",
+    "h_circular_end_blind_slot",
+}
+PAPER_TOP_OPENING_FEATURES = {
+    "6sides_pocket",
+    "6sides_passage",
+    "rectangular_passage",
+    "triangular_passage",
+    "triangular_pocket",
+}
+PAPER_LARGEST_BOUND_FEATURES = PAPER_TOP_OPENING_FEATURES | {
+    "blind_hole",
+    "h_circular_end_blind_slot",
+}
+PAPER_LARGE_SHIFTER_MIN = 0.72
+PAPER_LARGE_SHIFTER_MAX = 0.95
+PAPER_SHALLOW_BLIND_FEATURES = {
+    "6sides_pocket",
+    "triangular_pocket",
+    "rectangular_pocket",
+    "circular_end_pocket",
+}
+PAPER_BLIND_DEPTH_MIN_RATIO = 0.28
+PAPER_BLIND_DEPTH_MAX_RATIO = 0.45
 
 
 def validate_features(feature_names):
     invalid = [name for name in feature_names if name not in param.feat_names]
     if invalid:
         raise ValueError(f"Unknown feature names: {invalid}")
+
+
+def paper_shifter_range_for_feature(feature_name):
+    if feature_name in PAPER_LARGE_OPENING_FEATURES:
+        return PAPER_LARGE_SHIFTER_MIN, PAPER_LARGE_SHIFTER_MAX
+    return PAPER_SHIFTER_MIN, PAPER_SHIFTER_MAX
+
+
+def paper_prefers_top_opening(feature_name):
+    return feature_name in PAPER_TOP_OPENING_FEATURES
+
+
+def paper_bound_area(bound):
+    if len(bound) < 4:
+        return 0.0
+
+    width = math.sqrt(sum((float(bound[2][i]) - float(bound[1][i])) ** 2 for i in range(3)))
+    height = math.sqrt(sum((float(bound[0][i]) - float(bound[1][i])) ** 2 for i in range(3)))
+    return width * height
+
+
+def paper_bounds_for_feature(feature_name, bounds):
+    if not paper_prefers_top_opening(feature_name):
+        if feature_name in PAPER_LARGEST_BOUND_FEATURES and bounds:
+            return [max(bounds, key=paper_bound_area)]
+        return bounds
+
+    top_bounds = [bound for bound in bounds if len(bound) > 4 and bound[4][2] < -0.9]
+    if not top_bounds:
+        return bounds
+
+    return [max(top_bounds, key=paper_bound_area)]
+
+
+def paper_variable_round_radius_pair(min_radius, max_radius):
+    if max_radius <= min_radius:
+        return min_radius, max_radius
+
+    span = max_radius - min_radius
+    return min_radius + span * 0.08, min_radius + span * 0.94
+
+
+
+def paper_blind_depth_range_for_feature(feature_name, min_depth, max_depth):
+    if feature_name not in PAPER_SHALLOW_BLIND_FEATURES or max_depth <= min_depth:
+        return min_depth, max_depth
+
+    capped_min = max(min_depth, max_depth * PAPER_BLIND_DEPTH_MIN_RATIO)
+    capped_max = min(max_depth, max(capped_min, max_depth * PAPER_BLIND_DEPTH_MAX_RATIO))
+    return capped_min, capped_max
 
 
 @contextmanager
@@ -77,7 +159,8 @@ def paper_shifter_range(min_scale=PAPER_SHIFTER_MIN, max_scale=PAPER_SHIFTER_MAX
 
         def patched_uniform(a, b):
             if a == 0.1 and b == 1.0:
-                return original_uniform(min_scale, max_scale)
+                feature_min, feature_max = paper_shifter_range_for_feature(self.feat_type)
+                return original_uniform(feature_min, feature_max)
             return original_uniform(a, b)
 
         random.uniform = patched_uniform
@@ -91,6 +174,75 @@ def paper_shifter_range(min_scale=PAPER_SHIFTER_MIN, max_scale=PAPER_SHIFTER_MAX
         yield
     finally:
         MachiningFeature._shifter = original_shifter
+
+
+@contextmanager
+def paper_bound_orientation():
+    original_get_bounds = MachiningFeature._get_bounds
+
+    def display_get_bounds(self):
+        original_get_bounds(self)
+        self.bounds = paper_bounds_for_feature(self.feat_type, self.bounds)
+
+    MachiningFeature._get_bounds = display_get_bounds
+    try:
+        yield
+    finally:
+        MachiningFeature._get_bounds = original_get_bounds
+
+
+@contextmanager
+def paper_blind_depth_range():
+    original_depth_blind = MachiningFeature._depth_blind
+
+    def display_depth_blind(self, bound, triangles):
+        original_uniform = random.uniform
+
+        def patched_uniform(a, b):
+            if a == self.min_len:
+                depth_min, depth_max = paper_blind_depth_range_for_feature(self.feat_type, a, b)
+                return original_uniform(depth_min, depth_max)
+            return original_uniform(a, b)
+
+        random.uniform = patched_uniform
+        try:
+            return original_depth_blind(self, bound, triangles)
+        finally:
+            random.uniform = original_uniform
+
+    MachiningFeature._depth_blind = display_depth_blind
+    try:
+        yield
+    finally:
+        MachiningFeature._depth_blind = original_depth_blind
+
+
+@contextmanager
+def paper_variable_round_contrast():
+    original_add_feature = VariableRound.add_feature
+
+    def display_add_feature(self):
+        original_uniform = random.uniform
+        radius_queue = []
+
+        def patched_uniform(a, b):
+            if b > a:
+                if not radius_queue:
+                    radius_queue.extend(paper_variable_round_radius_pair(a, b))
+                return radius_queue.pop(0)
+            return original_uniform(a, b)
+
+        random.uniform = patched_uniform
+        try:
+            return original_add_feature(self)
+        finally:
+            random.uniform = original_uniform
+
+    VariableRound.add_feature = display_add_feature
+    try:
+        yield
+    finally:
+        VariableRound.add_feature = original_add_feature
 
 
 def save_step_with_face_labels(step_path, shape, seg_map):
@@ -162,7 +314,7 @@ def generate_feature_once(feature_name, output_dir, presets, seed):
     label_path = output_dir / "labels" / f"{pretty}.json"
     image_path = output_dir / "png" / f"{pretty}.png"
 
-    with temporary_parameter_overrides(PAPER_PARAMETER_OVERRIDES), paper_shifter_range():
+    with temporary_parameter_overrides(PAPER_PARAMETER_OVERRIDES), paper_bound_orientation(), paper_shifter_range(), paper_blind_depth_range(), paper_variable_round_contrast():
         shape, labels = feature_creation.shape_from_directive([feature_id])
 
     if shape is None:
