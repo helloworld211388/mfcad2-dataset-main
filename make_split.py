@@ -272,7 +272,7 @@ def stratified_sample(items, labels_of, ratio, rng, class_universe):
 # 主流程
 # ---------------------------------------------------------------------------
 
-def read_bbox_exclusions(csv_path, threshold):
+def read_bbox_exclusions(csv_path, threshold, optimal_threshold=52.0):
     """返回 (超阈值模型集合, 读取失败的模型集合)。
 
     CSV 列：id,status,add_extent,optimal_extent,n_faces
@@ -294,12 +294,15 @@ def read_bbox_exclusions(csv_path, threshold):
                 continue
             mid, status = parts[0], parts[1]
             try:
-                e = max(float(parts[2]), float(parts[3]))
+                e_add = float(parts[2])
+                e_opt = float(parts[3])
             except ValueError:
-                e = -1.0
+                e_add = e_opt = -1.0
             if status != "ok":
                 failed.add(mid)
-            elif e > threshold:
+            elif e_add > threshold or e_opt > optimal_threshold:
+                # add    超阈值 -> normalize_shape 用 BRepBndLib.Add，归一化会把 bin 压扁
+                # optimal 超阈值 -> 精确包围盒本身超出毛坯尺寸，是真异常（STEP 杂点）
                 over.add(mid)
     return over, failed
 
