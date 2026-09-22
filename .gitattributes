@@ -1,0 +1,5 @@
+splits/*.txt text eol=lf
+splits/*.csv text eol=lf
+make_split.py text eol=lf
+splits/*.md text eol=lf
+splits/scan_occ_bbox.py text eol=lf
